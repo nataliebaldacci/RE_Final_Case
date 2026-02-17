@@ -177,6 +177,18 @@
     border-radius: 4px !important;
   }
   .subject-tooltip::before { border-top-color: #B22222 !important; }
+
+  .comp-label {
+    background: rgba(255,255,255,0.92) !important;
+    border: 1px solid #ccc !important;
+    color: #333 !important;
+    font-size: 10px !important;
+    font-weight: 600 !important;
+    padding: 2px 6px !important;
+    border-radius: 3px !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15) !important;
+    white-space: nowrap !important;
+  }
 </style>
 </head>
 <body>
@@ -1244,8 +1256,8 @@ features.forEach(f => {
       permanent: true, direction: "top", offset: [0, -16], className: "subject-tooltip"
     });
   } else {
-    marker.bindTooltip("#" + p.rank + " " + p.address + " ($" + (p.price_per_sf != null ? p.price_per_sf.toFixed(0) : "?") + "/SF)", {
-      direction: "top", offset: [0, -10]
+    marker.bindTooltip("#" + p.rank + " " + p.address + " — $" + (p.price_per_sf != null ? p.price_per_sf.toFixed(0) : "?") + "/SF", {
+      permanent: true, direction: "top", offset: [0, -10], className: "comp-label"
     });
   }
   layers[tier].addLayer(marker);
