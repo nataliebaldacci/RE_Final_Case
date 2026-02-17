@@ -1,0 +1,1279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>648 Grassmere Park — Comparable Sales Map</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: Arial, sans-serif; }
+  #map { width: 100%; height: 100vh; }
+
+  .leaflet-popup-content-wrapper {
+    border-radius: 8px;
+    padding: 0;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+    max-width: 400px;
+  }
+  .leaflet-popup-content { margin: 0; width: 380px !important; }
+  .leaflet-popup-close-button { color: #fff !important; font-size: 20px; z-index: 10; }
+
+  .prop-card { font-family: Arial, sans-serif; overflow: hidden; border-radius: 8px; }
+
+  .prop-card .card-header {
+    padding: 10px 14px;
+    color: #fff;
+    position: relative;
+  }
+  .prop-card .card-header.subject { background: linear-gradient(135deg, #8B0000, #C62828); }
+  .prop-card .card-header.tier1 { background: linear-gradient(135deg, #0D47A1, #1565C0); }
+  .prop-card .card-header.tier2 { background: linear-gradient(135deg, #1B5E20, #2E7D32); }
+  .prop-card .card-header.tier3 { background: linear-gradient(135deg, #BF360C, #E65100); }
+
+  .prop-card .card-header .badges {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+  .prop-card .card-header .rank-badge {
+    background: rgba(255,255,255,0.25);
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 800;
+  }
+  .prop-card .card-header .tier-badge {
+    background: rgba(255,255,255,0.2);
+    padding: 3px 12px;
+    border-radius: 12px;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  .prop-card .card-header h3 { font-size: 16px; font-weight: 800; margin: 0; line-height: 1.2; }
+  .prop-card .card-header .subtitle { font-size: 11px; opacity: 0.8; margin-top: 2px; }
+
+  .prop-card .card-images {
+    display: flex;
+    height: 170px;
+    background: #e8e8e8;
+    position: relative;
+  }
+  .prop-card .card-images .img-panel {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+    cursor: pointer;
+  }
+  .prop-card .card-images .img-panel + .img-panel {
+    border-left: 2px solid #fff;
+  }
+  .prop-card .card-images img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.2s;
+  }
+  .prop-card .card-images .img-panel:hover img {
+    transform: scale(1.05);
+  }
+  .prop-card .card-images .img-label {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    background: linear-gradient(transparent, rgba(0,0,0,0.7));
+    color: #fff;
+    font-size: 10px; font-weight: 600;
+    padding: 16px 8px 5px;
+    text-align: center;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  .prop-card .sale-strip {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    background: #f8f9fa;
+    border-bottom: 2px solid #e9ecef;
+  }
+  .prop-card .sale-strip .price-block .price {
+    font-size: 22px; font-weight: 900; color: #1a237e;
+    letter-spacing: -0.5px;
+  }
+  .prop-card .sale-strip .price-block .year {
+    font-size: 11px; color: #777; margin-top: 1px;
+  }
+  .prop-card .sale-strip .psf-badge {
+    font-size: 16px; font-weight: 800; color: #1B5E20;
+    background: #E8F5E9;
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid #C8E6C9;
+  }
+
+  .prop-card .data-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+  }
+  .prop-card .data-cell {
+    padding: 6px 14px;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .prop-card .data-cell:nth-child(odd) { border-right: 1px solid #f0f0f0; }
+  .prop-card .data-cell .label {
+    font-size: 9px; color: #aaa;
+    text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700;
+  }
+  .prop-card .data-cell .value {
+    font-size: 13px; font-weight: 700; color: #333; margin-top: 1px;
+  }
+  .prop-card .data-cell.full { grid-column: 1 / -1; }
+
+  .score-wrap { padding: 6px 14px 4px; }
+  .score-header { display: flex; justify-content: space-between; font-size: 10px; color: #999; font-weight: 600; }
+  .score-bar { height: 6px; background: #e9ecef; border-radius: 3px; margin-top: 3px; overflow: hidden; }
+  .score-bar .fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+
+  .prop-card .card-links {
+    display: flex; flex-wrap: wrap; gap: 5px;
+    padding: 8px 14px 10px;
+    border-top: 1px solid #eee;
+  }
+  .prop-card .card-links a {
+    font-size: 10px; color: #1565C0;
+    text-decoration: none;
+    padding: 3px 8px;
+    border: 1px solid #BBDEFB;
+    border-radius: 4px;
+    background: #E3F2FD;
+    transition: all 0.15s;
+    font-weight: 600;
+  }
+  .prop-card .card-links a:hover { background: #1565C0; color: #fff; border-color: #1565C0; }
+
+  .legend {
+    background: white;
+    padding: 14px 18px;
+    border-radius: 10px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+    font-family: Arial, sans-serif;
+  }
+  .legend h4 { font-size: 14px; margin-bottom: 8px; color: #333; font-weight: 800; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #555; padding: 2px 0; }
+  .legend-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.3); flex-shrink: 0; }
+
+  .subject-tooltip {
+    background: #B22222 !important;
+    color: #fff !important;
+    border: none !important;
+    font-weight: 700 !important;
+    font-size: 12px !important;
+    padding: 4px 10px !important;
+    border-radius: 4px !important;
+  }
+  .subject-tooltip::before { border-top-color: #B22222 !important; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+const features = [
+  {
+    "type": "Feature",
+    "geometry": {
+      "type": "Point",
+      "coordinates": [
+        -86.7463248719999,
+        36.090389399
+      ]
+    },
+    "properties": {
+      "rank": 0,
+      "tier": "Subject",
+      "address": "648 GRASSMERE PARK",
+      "city": "Nashville",
+      "state": "TN",
+      "zip": "37211",
+      "apn": "13300013500",
+      "year_built": 1985,
+      "total_sf": null,
+      "stories": 3,
+      "zoning": "IWD",
+      "land_use": "OFFICE BLDG (3 OR MORE STORIES)",
+      "acres": 23.49,
+      "total_appraised": 37400600,
+      "sale_price": 25938000,
+      "price_per_sf": 115.69,
+      "sale_year": 2015,
+      "comp_score": 100,
+      "URL_Parcel_Viewer": "https://maps.nashville.gov/ParcelViewer/?parcelID=13300013500",
+      "URL_Parcel_Report": "https://maps.nashville.gov/ParcelViewer/PrintRecord.html?pin=215200",
+      "URL_Comparable_Map": "https://davidson-tn-citizen.comper.info/template.aspx?propertyID=13300013500",
+      "URL_Permit_Documents": "https://documents.nashville.gov/Request/Form/PermitCodes?parcelnumber=13300013500",
+      "URL_ePermits": "https://epermits.nashville.gov/#/search?searchCode=APN&page=1&searchText=13300013500&searchType=permit",
+      "URL_Aerial_View": "https://portal.patriotproperties.com/?APIKEY=5D050659143EB96630FB38B91DE12E40&SECRETKEY=A92169630C9BC3C00A1C0F9F140E6DAEC21C8E62DCFF9FC443FB1BE70DDF6AA4268527B9DDE2ECC2C7EE9BB5BF728C06F0DF4019BBECDEBD2A6DD0BBE28A419D8F929E1F3E8DF478E56619995BEFCA8E369276689D791197DC1284F14B3252DBFB2A19A2E451EEA832D6D96488DDC673EBA4B37BD741223B656A793D93209C0F&LAT=36.09038939900006&LONG=-86.74632487199995",
+      "URL_Google_Street_View": "https://www.google.com/maps?q&layer=c&cbll=36.09038939900006,-86.74632487199995",
+      "URL_Google_Maps": "https://www.google.com/maps/search/?api=1&query=648%20GRASSMERE%20PARK%2C%20Nashville%2C%20TN",
+      "URL_Owner_Instrument": "https://www.davidsonportal.com/gis/file.php?file=201506120055733",
+      "URL_Parcel_Instrument": "https://www.davidsonportal.com/gis/file.php?file=000097000000615",
+      "URL_Assessor_Building": "https://portal.padctn.org/OFS/WP/Building/149401",
+      "URL_Assessor_Print": "https://portal.padctn.org/OFS/WP/Print/149401",
+      "URL_Assessor_Summary": "https://portal.padctn.org/OFS/WP/Summary/149401",
+      "propertyID": "149401"
+    }
+  },
+  {
+    "type": "Feature",
+    "geometry": {
+      "type": "Point",
+      "coordinates": [
+        -86.7477005659999,
+        36.087262621
+      ]
+    },
+    "properties": {
+      "rank": 1,
+      "tier": "Tier 1",
+      "address": "636 GRASSMERE PARK",
+      "city": "Nashville",
+      "state": "TN",
+      "zip": "37211",
+      "apn": "13300012900",
+      "year_built": 1985,
+      "total_sf": 63474,
+      "stories": 1,
+      "zoning": "IWD",
+      "land_use": "OFFICE BLDG (ONE OR TWO STORIES)",
+      "acres": 6.02,
+      "total_appraised": 19464200,
+      "sale_price": 15000000,
+      "price_per_sf": 236.32,
+      "sale_year": 2022,
+      "comp_score": 95,
+      "URL_Parcel_Viewer": "https://maps.nashville.gov/ParcelViewer/?parcelID=13300012900",
+      "URL_Parcel_Report": "https://maps.nashville.gov/ParcelViewer/PrintRecord.html?pin=215185",
+      "URL_Comparable_Map": "https://davidson-tn-citizen.comper.info/template.aspx?propertyID=13300012900",
+      "URL_Permit_Documents": "https://documents.nashville.gov/Request/Form/PermitCodes?parcelnumber=13300012900",
+      "URL_ePermits": "https://epermits.nashville.gov/#/search?searchCode=APN&page=1&searchText=13300012900&searchType=permit",
+      "URL_Aerial_View": "https://portal.patriotproperties.com/?APIKEY=5D050659143EB96630FB38B91DE12E40&SECRETKEY=A92169630C9BC3C00A1C0F9F140E6DAEC21C8E62DCFF9FC443FB1BE70DDF6AA4268527B9DDE2ECC2C7EE9BB5BF728C06F0DF4019BBECDEBD2A6DD0BBE28A419D8F929E1F3E8DF478E56619995BEFCA8E369276689D791197DC1284F14B3252DBFB2A19A2E451EEA832D6D96488DDC673EBA4B37BD741223B656A793D93209C0F&LAT=36.087262621000036&LONG=-86.74770056599993",
+      "URL_Google_Street_View": "https://www.google.com/maps?q&layer=c&cbll=36.087262621000036,-86.74770056599993",
+      "URL_Google_Maps": "https://www.google.com/maps/search/?api=1&query=636%20GRASSMERE%20PARK%2C%20Nashville%2C%20TN",
+      "URL_Owner_Instrument": "https://www.davidsonportal.com/gis/file.php?file=202412270100057",
+      "URL_Parcel_Instrument": "https://www.davidsonportal.com/gis/file.php?file=000062000000079",
+      "URL_Assessor_Building": "https://portal.padctn.org/OFS/WP/Building/149397",
+      "URL_Assessor_Print": "https://portal.padctn.org/OFS/WP/Print/149397",
+      "URL_Assessor_Summary": "https://portal.padctn.org/OFS/WP/Summary/149397",
+      "propertyID": "149397"
+    }
+  },
+  {
+    "type": "Feature",
+    "geometry": {
+      "type": "Point",
+      "coordinates": [
+        -86.7982347989999,
+        36.195186111
+      ]
+    },
+    "properties": {
+      "rank": 2,
+      "tier": "Tier 1",
+      "address": "200 ATHENS WAY",
+      "city": "Nashville",
+      "state": "TN",
+      "zip": "37228",
+      "apn": "7016002000",
+      "year_built": 1985,
+      "total_sf": null,
+      "stories": 8,
+      "zoning": "IWD",
+      "land_use": "OFFICE BLDG (3 OR MORE STORIES)",
+      "acres": 8.7,
+      "total_appraised": 45070800,
+      "sale_price": 36000000,
+      "price_per_sf": 146.25,
+      "sale_year": 2019,
+      "comp_score": 93,
+      "URL_Parcel_Viewer": "https://maps.nashville.gov/ParcelViewer/?parcelID=07016002000",
+      "URL_Parcel_Report": "https://maps.nashville.gov/ParcelViewer/PrintRecord.html?pin=68936",
+      "URL_Comparable_Map": "https://davidson-tn-citizen.comper.info/template.aspx?propertyID=07016002000",
+      "URL_Permit_Documents": "https://documents.nashville.gov/Request/Form/PermitCodes?parcelnumber=07016002000",
+      "URL_ePermits": "https://epermits.nashville.gov/#/search?searchCode=APN&page=1&searchText=07016002000&searchType=permit",
+      "URL_Aerial_View": "https://portal.patriotproperties.com/?APIKEY=5D050659143EB96630FB38B91DE12E40&SECRETKEY=A92169630C9BC3C00A1C0F9F140E6DAEC21C8E62DCFF9FC443FB1BE70DDF6AA4268527B9DDE2ECC2C7EE9BB5BF728C06F0DF4019BBECDEBD2A6DD0BBE28A419D8F929E1F3E8DF478E56619995BEFCA8E369276689D791197DC1284F14B3252DBFB2A19A2E451EEA832D6D96488DDC673EBA4B37BD741223B656A793D93209C0F&LAT=36.195186111000055&LONG=-86.79823479899994",
+      "URL_Google_Street_View": "https://www.google.com/maps?q&layer=c&cbll=36.195186111000055,-86.79823479899994",
+      "URL_Google_Maps": "https://www.google.com/maps/search/?api=1&query=200%20ATHENS%20WAY%2C%20Nashville%2C%20TN",
+      "URL_Owner_Instrument": "https://www.davidsonportal.com/gis/file.php?file=201904300039642",
+      "URL_Parcel_Instrument": "https://www.davidsonportal.com/gis/file.php?file=000058000000341",
+      "URL_Assessor_Building": "https://portal.padctn.org/OFS/WP/Building/45167",
+      "URL_Assessor_Print": "https://portal.padctn.org/OFS/WP/Print/45167",
+      "URL_Assessor_Summary": "https://portal.padctn.org/OFS/WP/Summary/45167",
+      "propertyID": "45167"
+    }
+  },
+  {
+    "type": "Feature",
+    "geometry": {
+      "type": "Point",
+      "coordinates": [
+        -86.7989684269999,
+        36.194155075
+      ]
+    },
+    "properties": {
+      "rank": 3,
+      "tier": "Tier 1",
+      "address": "210 ATHENS WAY",
+      "city": "Nashville",
+      "state": "TN",
+      "zip": "37228",
+      "apn": "7016002100",
+      "year_built": 1985,
+      "total_sf": null,
+      "stories": 5,
+      "zoning": "MUG-NS",
+      "land_use": "OFFICE BLDG (3 OR MORE STORIES)",
+      "acres": 10.01,
+      "total_appraised": 28231600,
+      "sale_price": 32250000,
+      "price_per_sf": 203.39,
+      "sale_year": 2022,
+      "comp_score": 90,
+      "URL_Parcel_Viewer": "https://maps.nashville.gov/ParcelViewer/?parcelID=07016002100",
+      "URL_Parcel_Report": "https://maps.nashville.gov/ParcelViewer/PrintRecord.html?pin=68937",
+      "URL_Comparable_Map": "https://davidson-tn-citizen.comper.info/template.aspx?propertyID=07016002100",
+      "URL_Permit_Documents": "https://documents.nashville.gov/Request/Form/PermitCodes?parcelnumber=07016002100",
+      "URL_ePermits": "https://epermits.nashville.gov/#/search?searchCode=APN&page=1&searchText=07016002100&searchType=permit",
+      "URL_Aerial_View": "https://portal.patriotproperties.com/?APIKEY=5D050659143EB96630FB38B91DE12E40&SECRETKEY=A92169630C9BC3C00A1C0F9F140E6DAEC21C8E62DCFF9FC443FB1BE70DDF6AA4268527B9DDE2ECC2C7EE9BB5BF728C06F0DF4019BBECDEBD2A6DD0BBE28A419D8F929E1F3E8DF478E56619995BEFCA8E369276689D791197DC1284F14B3252DBFB2A19A2E451EEA832D6D96488DDC673EBA4B37BD741223B656A793D93209C0F&LAT=36.194155075000026&LONG=-86.79896842699998",
+      "URL_Google_Street_View": "https://www.google.com/maps?q&layer=c&cbll=36.194155075000026,-86.79896842699998",
+      "URL_Google_Maps": "https://www.google.com/maps/search/?api=1&query=210%20ATHENS%20WAY%2C%20Nashville%2C%20TN",
+      "URL_Owner_Instrument": "https://www.davidsonportal.com/gis/file.php?file=202208180093815",
+      "URL_Parcel_Instrument": "https://www.davidsonportal.com/gis/file.php?file=000058000000341",
+      "URL_Assessor_Building": "https://portal.padctn.org/OFS/WP/Building/45168",
+      "URL_Assessor_Print": "https://portal.padctn.org/OFS/WP/Print/45168",
+      "URL_Assessor_Summary": "https://portal.padctn.org/OFS/WP/Summary/45168",
+      "propertyID": "45168"
+    }
+  },
+  {
+    "type": "Feature",
+    "geometry": {
+      "type": "Point",
+      "coordinates": [
+        -86.7955305339999,
+        36.193143363
+      ]
+    },
+    "properties": {
+      "rank": 4,
+      "tier": "Tier 1",
+      "address": "227 FRENCH LANDING DR",
+      "city": "Nashville",
+      "state": "TN",
+      "zip": "37228",
+      "apn": "7016000700",
+      "year_built": 1984,
+      "total_sf": null,
+      "stories": 5,
+      "zoning": "IWD",
+      "land_use": "OFFICE BLDG (3 OR MORE STORIES)",
+      "acres": 4.93,
+      "total_appraised": 16637800,
+      "sale_price": 22350000,
+      "price_per_sf": 201.5,
+      "sale_year": 2019,
+      "comp_score": 89,
+      "URL_Parcel_Viewer": "https://maps.nashville.gov/ParcelViewer/?parcelID=07016000700",
+      "URL_Parcel_Report": "https://maps.nashville.gov/ParcelViewer/PrintRecord.html?pin=68820",
+      "URL_Comparable_Map": "https://davidson-tn-citizen.comper.info/template.aspx?propertyID=07016000700",
+      "URL_Permit_Documents": "https://documents.nashville.gov/Request/Form/PermitCodes?parcelnumber=07016000700",
+      "URL_ePermits": "https://epermits.nashville.gov/#/search?searchCode=APN&page=1&searchText=07016000700&searchType=permit",
+      "URL_Aerial_View": "https://portal.patriotproperties.com/?APIKEY=5D050659143EB96630FB38B91DE12E40&SECRETKEY=A92169630C9BC3C00A1C0F9F140E6DAEC21C8E62DCFF9FC443FB1BE70DDF6AA4268527B9DDE2ECC2C7EE9BB5BF728C06F0DF4019BBECDEBD2A6DD0BBE28A419D8F929E1F3E8DF478E56619995BEFCA8E369276689D791197DC1284F14B3252DBFB2A19A2E451EEA832D6D96488DDC673EBA4B37BD741223B656A793D93209C0F&LAT=36.19314336300005&LONG=-86.79553053399997",
+      "URL_Google_Street_View": "https://www.google.com/maps?q&layer=c&cbll=36.19314336300005,-86.79553053399997",
+      "URL_Google_Maps": "https://www.google.com/maps/search/?api=1&query=227%20FRENCH%20LANDING%20DR%2C%20Nashville%2C%20TN",
+      "URL_Owner_Instrument": "https://www.davidsonportal.com/gis/file.php?file=201902280018427",
+      "URL_Parcel_Instrument": "https://www.davidsonportal.com/gis/file.php?file=000051900000491",
+      "URL_Assessor_Building": "https://portal.padctn.org/OFS/WP/Building/45156",
+      "URL_Assessor_Print": "https://portal.padctn.org/OFS/WP/Print/45156",
+      "URL_Assessor_Summary": "https://portal.padctn.org/OFS/WP/Summary/45156",
+      "propertyID": "45156"
+    }
+  },
+  {
+    "type": "Feature",
+    "geometry": {
+      "type": "Point",
+      "coordinates": [
+        -86.8097473069999,
+        36.19899897
+      ]
+    },
+    "properties": {
+      "rank": 5,
+      "tier": "Tier 1",
+      "address": "501 GREAT CIRCLE RD",
+      "city": "Nashville",
+      "state": "TN",
+      "zip": "37228",
+      "apn": "7011000200",
+      "year_built": 1985,
+      "total_sf": 71916,
+      "stories": 3,
+      "zoning": "IWD",
+      "land_use": "OFFICE BLDG (3 OR MORE STORIES)",
+      "acres": 6.22,
+      "total_appraised": 18462000,
+      "sale_price": 18000000,
+      "price_per_sf": 143.08,
+      "sale_year": 2019,
+      "comp_score": 88,
+      "URL_Parcel_Viewer": "https://maps.nashville.gov/ParcelViewer/?parcelID=07011000200",
+      "URL_Parcel_Report": "https://maps.nashville.gov/ParcelViewer/PrintRecord.html?pin=66824",
+      "URL_Comparable_Map": "https://davidson-tn-citizen.comper.info/template.aspx?propertyID=07011000200",
+      "URL_Permit_Documents": "https://documents.nashville.gov/Request/Form/PermitCodes?parcelnumber=07011000200",
+      "URL_ePermits": "https://epermits.nashville.gov/#/search?searchCode=APN&page=1&searchText=07011000200&searchType=permit",
+      "URL_Aerial_View": "https://portal.patriotproperties.com/?APIKEY=5D050659143EB96630FB38B91DE12E40&SECRETKEY=A92169630C9BC3C00A1C0F9F140E6DAEC21C8E62DCFF9FC443FB1BE70DDF6AA4268527B9DDE2ECC2C7EE9BB5BF728C06F0DF4019BBECDEBD2A6DD0BBE28A419D8F929E1F3E8DF478E56619995BEFCA8E369276689D791197DC1284F14B3252DBFB2A19A2E451EEA832D6D96488DDC673EBA4B37BD741223B656A793D93209C0F&LAT=36.19899897000005&LONG=-86.80974730699995",
+      "URL_Google_Street_View": "https://www.google.com/maps?q&layer=c&cbll=36.19899897000005,-86.80974730699995",
+      "URL_Google_Maps": "https://www.google.com/maps/search/?api=1&query=501%20GREAT%20CIRCLE%20RD%2C%20Nashville%2C%20TN",
+      "URL_Owner_Instrument": "https://www.davidsonportal.com/gis/file.php?file=202111300157638",
+      "URL_Parcel_Instrument": "https://www.davidsonportal.com/gis/file.php?file=000062000000007",
+      "URL_Assessor_Building": "https://portal.padctn.org/OFS/WP/Building/44930",
+      "URL_Assessor_Print": "https://portal.padctn.org/OFS/WP/Print/44930",
+      "URL_Assessor_Summary": "https://portal.padctn.org/OFS/WP/Summary/44930",
+      "propertyID": "44930"
+    }
+  },
+  {
+    "type": "Feature",
+    "geometry": {
+      "type": "Point",
+      "coordinates": [
+        -86.7882881519999,
+        36.193994449
+      ]
+    },
+    "properties": {
+      "rank": 6,
+      "tier": "Tier 1",
+      "address": "215 CUMBERLAND BND",
+      "city": "Nashville",
+      "state": "TN",
+      "zip": "37228",
+      "apn": "7113001600",
+      "year_built": 1980,
+      "total_sf": null,
+      "stories": 2,
+      "zoning": "IWD",
+      "land_use": "OFFICE BLDG (ONE OR TWO STORIES)",
+      "acres": 8.2,
+      "total_appraised": 32236800,
+      "sale_price": 10850000,
+      "price_per_sf": 107.29,
+      "sale_year": 2020,
+      "comp_score": 85,
+      "URL_Parcel_Viewer": "https://maps.nashville.gov/ParcelViewer/?parcelID=07113001600",
+      "URL_Parcel_Report": "https://maps.nashville.gov/ParcelViewer/PrintRecord.html?pin=73685",
+      "URL_Comparable_Map": "https://davidson-tn-citizen.comper.info/template.aspx?propertyID=07113001600",
+      "URL_Permit_Documents": "https://documents.nashville.gov/Request/Form/PermitCodes?parcelnumber=07113001600",
+      "URL_ePermits": "https://epermits.nashville.gov/#/search?searchCode=APN&page=1&searchText=07113001600&searchType=permit",
+      "URL_Aerial_View": "https://portal.patriotproperties.com/?APIKEY=5D050659143EB96630FB38B91DE12E40&SECRETKEY=A92169630C9BC3C00A1C0F9F140E6DAEC21C8E62DCFF9FC443FB1BE70DDF6AA4268527B9DDE2ECC2C7EE9BB5BF728C06F0DF4019BBECDEBD2A6DD0BBE28A419D8F929E1F3E8DF478E56619995BEFCA8E369276689D791197DC1284F14B3252DBFB2A19A2E451EEA832D6D96488DDC673EBA4B37BD741223B656A793D93209C0F&LAT=36.19399444900006&LONG=-86.78828815199995",
+      "URL_Google_Street_View": "https://www.google.com/maps?q&layer=c&cbll=36.19399444900006,-86.78828815199995",
+      "URL_Google_Maps": "https://www.google.com/maps/search/?api=1&query=215%20CUMBERLAND%20BND%2C%20Nashville%2C%20TN",
+      "URL_Owner_Instrument": "https://www.davidsonportal.com/gis/file.php?file=202006090059076",
+      "URL_Parcel_Instrument": "https://www.davidsonportal.com/gis/file.php?file=000052100000090",
+      "URL_Assessor_Building": "https://portal.padctn.org/OFS/WP/Building/47784",
+      "URL_Assessor_Print": "https://portal.padctn.org/OFS/WP/Print/47784",
+      "URL_Assessor_Summary": "https://portal.padctn.org/OFS/WP/Summary/47784",
+      "propertyID": "47784"
+    }
+  },
+  {
+    "type": "Feature",
+    "geometry": {
+      "type": "Point",
+      "coordinates": [
+        -86.6892542259999,
+        36.149614809
+      ]
+    },
+    "properties": {
+      "rank": 7,
+      "tier": "Tier 2",
+      "address": "545 MARRIOTT DR",
+      "city": "Nashville",
+      "state": "TN",
+      "zip": "37214",
+      "apn": "9500011000",
+      "year_built": 1986,
+      "total_sf": null,
+      "stories": 8,
+      "zoning": "ORI",
+      "land_use": "OFFICE BLDG (3 OR MORE STORIES)",
+      "acres": 8.6,
+      "total_appraised": 35012800,
+      "sale_price": 85500000,
+      "price_per_sf": 324.59,
+      "sale_year": 2019,
+      "comp_score": 82,
+      "URL_Parcel_Viewer": "https://maps.nashville.gov/ParcelViewer/?parcelID=09500011000",
+      "URL_Parcel_Report": "https://maps.nashville.gov/ParcelViewer/PrintRecord.html?pin=136704",
+      "URL_Comparable_Map": "https://davidson-tn-citizen.comper.info/template.aspx?propertyID=09500011000",
+      "URL_Permit_Documents": "https://documents.nashville.gov/Request/Form/PermitCodes?parcelnumber=09500011000",
+      "URL_ePermits": "https://epermits.nashville.gov/#/search?searchCode=APN&page=1&searchText=09500011000&searchType=permit",
+      "URL_Aerial_View": "https://portal.patriotproperties.com/?APIKEY=5D050659143EB96630FB38B91DE12E40&SECRETKEY=A92169630C9BC3C00A1C0F9F140E6DAEC21C8E62DCFF9FC443FB1BE70DDF6AA4268527B9DDE2ECC2C7EE9BB5BF728C06F0DF4019BBECDEBD2A6DD0BBE28A419D8F929E1F3E8DF478E56619995BEFCA8E369276689D791197DC1284F14B3252DBFB2A19A2E451EEA832D6D96488DDC673EBA4B37BD741223B656A793D93209C0F&LAT=36.14961480900007&LONG=-86.68925422599995",
+      "URL_Google_Street_View": "https://www.google.com/maps?q&layer=c&cbll=36.14961480900007,-86.68925422599995",
+      "URL_Google_Maps": "https://www.google.com/maps/search/?api=1&query=545%20MARRIOTT%20DR%2C%20Nashville%2C%20TN",
+      "URL_Owner_Instrument": "https://www.davidsonportal.com/gis/file.php?file=201910110104386",
+      "URL_Parcel_Instrument": "https://www.davidsonportal.com/gis/file.php?file=000058670000535",
+      "URL_Assessor_Building": "https://portal.padctn.org/OFS/WP/Building/94799",
+      "URL_Assessor_Print": "https://portal.padctn.org/OFS/WP/Print/94799",
+      "URL_Assessor_Summary": "https://portal.padctn.org/OFS/WP/Summary/94799",
+      "propertyID": "94799"
+    }
+  },
+  {
+    "type": "Feature",
+    "geometry": {
+      "type": "Point",
+      "coordinates": [
+        -86.8156852539999,
+        36.199140703
+      ]
+    },
+    "properties": {
+      "rank": 8,
+      "tier": "Tier 2",
+      "address": "621 MAINSTREAM DR",
+      "city": "Nashville",
+      "state": "TN",
+      "zip": "37228",
+      "apn": "7010001400",
+      "year_built": 1984,
+      "total_sf": 52917,
+      "stories": 1,
+      "zoning": "IWD",
+      "land_use": "OFFICE BLDG (ONE OR TWO STORIES)",
+      "acres": 7.18,
+      "total_appraised": 20071200,
+      "sale_price": 16150000,
+      "price_per_sf": 305.19,
+      "sale_year": 2023,
+      "comp_score": 80,
+      "URL_Parcel_Viewer": "https://maps.nashville.gov/ParcelViewer/?parcelID=07010001400",
+      "URL_Parcel_Report": "https://maps.nashville.gov/ParcelViewer/PrintRecord.html?pin=66719",
+      "URL_Comparable_Map": "https://davidson-tn-citizen.comper.info/template.aspx?propertyID=07010001400",
+      "URL_Permit_Documents": "https://documents.nashville.gov/Request/Form/PermitCodes?parcelnumber=07010001400",
+      "URL_ePermits": "https://epermits.nashville.gov/#/search?searchCode=APN&page=1&searchText=07010001400&searchType=permit",
+      "URL_Aerial_View": "https://portal.patriotproperties.com/?APIKEY=5D050659143EB96630FB38B91DE12E40&SECRETKEY=A92169630C9BC3C00A1C0F9F140E6DAEC21C8E62DCFF9FC443FB1BE70DDF6AA4268527B9DDE2ECC2C7EE9BB5BF728C06F0DF4019BBECDEBD2A6DD0BBE28A419D8F929E1F3E8DF478E56619995BEFCA8E369276689D791197DC1284F14B3252DBFB2A19A2E451EEA832D6D96488DDC673EBA4B37BD741223B656A793D93209C0F&LAT=36.19914070300007&LONG=-86.81568525399996",
+      "URL_Google_Street_View": "https://www.google.com/maps?q&layer=c&cbll=36.19914070300007,-86.81568525399996",
+      "URL_Google_Maps": "https://www.google.com/maps/search/?api=1&query=621%20MAINSTREAM%20DR%2C%20Nashville%2C%20TN",
+      "URL_Owner_Instrument": "https://www.davidsonportal.com/gis/file.php?file=202307140054302",
+      "URL_Parcel_Instrument": "https://www.davidsonportal.com/gis/file.php?file=000062000000231",
+      "URL_Assessor_Building": "https://portal.padctn.org/OFS/WP/Building/44925",
+      "URL_Assessor_Print": "https://portal.padctn.org/OFS/WP/Print/44925",
+      "URL_Assessor_Summary": "https://portal.padctn.org/OFS/WP/Summary/44925",
+      "propertyID": "44925"
+    }
+  },
+  {
+    "type": "Feature",
+    "geometry": {
+      "type": "Point",
+      "coordinates": [
+        -86.8137956039999,
+        36.199852844
+      ]
+    },
+    "properties": {
+      "rank": 9,
+      "tier": "Tier 2",
+      "address": "601 MAINSTREAM DR",
+      "city": "Nashville",
+      "state": "TN",
+      "zip": "37228",
+      "apn": "7010001700",
+      "year_built": 1984,
+      "total_sf": 52917,
+      "stories": 1,
+      "zoning": "IWD",
+      "land_use": "OFFICE BLDG (ONE OR TWO STORIES)",
+      "acres": 7.18,
+      "total_appraised": 9800000,
+      "sale_price": 13100000,
+      "price_per_sf": 247.56,
+      "sale_year": 2025,
+      "comp_score": 80,
+      "URL_Parcel_Viewer": "https://maps.nashville.gov/ParcelViewer/?parcelID=07010001700",
+      "URL_Parcel_Report": "https://maps.nashville.gov/ParcelViewer/PrintRecord.html?pin=66727",
+      "URL_Comparable_Map": "https://davidson-tn-citizen.comper.info/template.aspx?propertyID=07010001700",
+      "URL_Permit_Documents": "https://documents.nashville.gov/Request/Form/PermitCodes?parcelnumber=07010001700",
+      "URL_ePermits": "https://epermits.nashville.gov/#/search?searchCode=APN&page=1&searchText=07010001700&searchType=permit",
+      "URL_Aerial_View": "https://portal.patriotproperties.com/?APIKEY=5D050659143EB96630FB38B91DE12E40&SECRETKEY=A92169630C9BC3C00A1C0F9F140E6DAEC21C8E62DCFF9FC443FB1BE70DDF6AA4268527B9DDE2ECC2C7EE9BB5BF728C06F0DF4019BBECDEBD2A6DD0BBE28A419D8F929E1F3E8DF478E56619995BEFCA8E369276689D791197DC1284F14B3252DBFB2A19A2E451EEA832D6D96488DDC673EBA4B37BD741223B656A793D93209C0F&LAT=36.19985284400008&LONG=-86.81379560399995",
+      "URL_Google_Street_View": "https://www.google.com/maps?q&layer=c&cbll=36.19985284400008,-86.81379560399995",
+      "URL_Google_Maps": "https://www.google.com/maps/search/?api=1&query=601%20MAINSTREAM%20DR%2C%20Nashville%2C%20TN",
+      "URL_Owner_Instrument": "https://www.davidsonportal.com/gis/file.php?file=202512050096737",
+      "URL_Parcel_Instrument": "https://www.davidsonportal.com/gis/file.php?file=000062000000231",
+      "URL_Assessor_Building": "https://portal.padctn.org/OFS/WP/Building/44928",
+      "URL_Assessor_Print": "https://portal.padctn.org/OFS/WP/Print/44928",
+      "URL_Assessor_Summary": "https://portal.padctn.org/OFS/WP/Summary/44928",
+      "propertyID": "44928"
+    }
+  },
+  {
+    "type": "Feature",
+    "geometry": {
+      "type": "Point",
+      "coordinates": [
+        -86.6903962209999,
+        36.144580932
+      ]
+    },
+    "properties": {
+      "rank": 10,
+      "tier": "Tier 2",
+      "address": "616 MARRIOTT DR",
+      "city": "Nashville",
+      "state": "TN",
+      "zip": "37214",
+      "apn": "10700012100",
+      "year_built": 1985,
+      "total_sf": 83708,
+      "stories": 6,
+      "zoning": "ORI",
+      "land_use": "OFFICE BLDG (3 OR MORE STORIES)",
+      "acres": 3.74,
+      "total_appraised": 11900000,
+      "sale_price": 13030000,
+      "price_per_sf": 155.66,
+      "sale_year": 2018,
+      "comp_score": 78,
+      "URL_Parcel_Viewer": "https://maps.nashville.gov/ParcelViewer/?parcelID=10700012100",
+      "URL_Parcel_Report": "https://maps.nashville.gov/ParcelViewer/PrintRecord.html?pin=170763",
+      "URL_Comparable_Map": "https://davidson-tn-citizen.comper.info/template.aspx?propertyID=10700012100",
+      "URL_Permit_Documents": "https://documents.nashville.gov/Request/Form/PermitCodes?parcelnumber=10700012100",
+      "URL_ePermits": "https://epermits.nashville.gov/#/search?searchCode=APN&page=1&searchText=10700012100&searchType=permit",
+      "URL_Aerial_View": "https://portal.patriotproperties.com/?APIKEY=5D050659143EB96630FB38B91DE12E40&SECRETKEY=A92169630C9BC3C00A1C0F9F140E6DAEC21C8E62DCFF9FC443FB1BE70DDF6AA4268527B9DDE2ECC2C7EE9BB5BF728C06F0DF4019BBECDEBD2A6DD0BBE28A419D8F929E1F3E8DF478E56619995BEFCA8E369276689D791197DC1284F14B3252DBFB2A19A2E451EEA832D6D96488DDC673EBA4B37BD741223B656A793D93209C0F&LAT=36.14458093200005&LONG=-86.69039622099996",
+      "URL_Google_Street_View": "https://www.google.com/maps?q&layer=c&cbll=36.14458093200005,-86.69039622099996",
+      "URL_Google_Maps": "https://www.google.com/maps/search/?api=1&query=616%20MARRIOTT%20DR%2C%20Nashville%2C%20TN",
+      "URL_Owner_Instrument": "https://www.davidsonportal.com/gis/file.php?file=201810080099493",
+      "URL_Parcel_Instrument": "https://www.davidsonportal.com/gis/file.php?file=000062500000138",
+      "URL_Assessor_Building": "https://portal.padctn.org/OFS/WP/Building/117346",
+      "URL_Assessor_Print": "https://portal.padctn.org/OFS/WP/Print/117346",
+      "URL_Assessor_Summary": "https://portal.padctn.org/OFS/WP/Summary/117346",
+      "propertyID": "117346"
+    }
+  },
+  {
+    "type": "Feature",
+    "geometry": {
+      "type": "Point",
+      "coordinates": [
+        -86.6849612789999,
+        36.147635045
+      ]
+    },
+    "properties": {
+      "rank": 11,
+      "tier": "Tier 2",
+      "address": "25 CENTURY BLVD",
+      "city": "Nashville",
+      "state": "TN",
+      "zip": "37214",
+      "apn": "10700013000",
+      "year_built": 1986,
+      "total_sf": null,
+      "stories": 6,
+      "zoning": "ORI",
+      "land_use": "OFFICE BLDG (3 OR MORE STORIES)",
+      "acres": 6.85,
+      "total_appraised": 16241200,
+      "sale_price": 30000000,
+      "price_per_sf": 228.93,
+      "sale_year": 2025,
+      "comp_score": 77,
+      "URL_Parcel_Viewer": "https://maps.nashville.gov/ParcelViewer/?parcelID=10700013000",
+      "URL_Parcel_Report": "https://maps.nashville.gov/ParcelViewer/PrintRecord.html?pin=170773",
+      "URL_Comparable_Map": "https://davidson-tn-citizen.comper.info/template.aspx?propertyID=10700013000",
+      "URL_Permit_Documents": "https://documents.nashville.gov/Request/Form/PermitCodes?parcelnumber=10700013000",
+      "URL_ePermits": "https://epermits.nashville.gov/#/search?searchCode=APN&page=1&searchText=10700013000&searchType=permit",
+      "URL_Aerial_View": "https://portal.patriotproperties.com/?APIKEY=5D050659143EB96630FB38B91DE12E40&SECRETKEY=A92169630C9BC3C00A1C0F9F140E6DAEC21C8E62DCFF9FC443FB1BE70DDF6AA4268527B9DDE2ECC2C7EE9BB5BF728C06F0DF4019BBECDEBD2A6DD0BBE28A419D8F929E1F3E8DF478E56619995BEFCA8E369276689D791197DC1284F14B3252DBFB2A19A2E451EEA832D6D96488DDC673EBA4B37BD741223B656A793D93209C0F&LAT=36.14763504500007&LONG=-86.68496127899994",
+      "URL_Google_Street_View": "https://www.google.com/maps?q&layer=c&cbll=36.14763504500007,-86.68496127899994",
+      "URL_Google_Maps": "https://www.google.com/maps/search/?api=1&query=25%20CENTURY%20BLVD%2C%20Nashville%2C%20TN",
+      "URL_Owner_Instrument": "https://www.davidsonportal.com/gis/file.php?file=202512230102113",
+      "URL_Parcel_Instrument": "https://www.davidsonportal.com/gis/file.php?file=000062500000982",
+      "URL_Assessor_Building": "https://portal.padctn.org/OFS/WP/Building/117353",
+      "URL_Assessor_Print": "https://portal.padctn.org/OFS/WP/Print/117353",
+      "URL_Assessor_Summary": "https://portal.padctn.org/OFS/WP/Summary/117353",
+      "propertyID": "117353"
+    }
+  },
+  {
+    "type": "Feature",
+    "geometry": {
+      "type": "Point",
+      "coordinates": [
+        -86.8214601249999,
+        36.09589676
+      ]
+    },
+    "properties": {
+      "rank": 12,
+      "tier": "Tier 2",
+      "address": "1 BURTON HILLS BLVD",
+      "city": "Nashville",
+      "state": "TN",
+      "zip": "37215",
+      "apn": "131060A00100CO",
+      "year_built": 1985,
+      "total_sf": null,
+      "stories": 3,
+      "zoning": "SP",
+      "land_use": "OFFICE BLDG (3 OR MORE STORIES)",
+      "acres": 7.07,
+      "total_appraised": 12000000,
+      "sale_price": 12000000,
+      "price_per_sf": 98.39,
+      "sale_year": 2025,
+      "comp_score": 76,
+      "URL_Parcel_Viewer": "https://maps.nashville.gov/ParcelViewer/?parcelID=131060A00100CO",
+      "URL_Parcel_Report": "https://maps.nashville.gov/ParcelViewer/PrintRecord.html?pin=210667",
+      "URL_Comparable_Map": "https://davidson-tn-citizen.comper.info/template.aspx?propertyID=131060A00100CO",
+      "URL_Permit_Documents": "https://documents.nashville.gov/Request/Form/PermitCodes?parcelnumber=131060A00100CO",
+      "URL_ePermits": "https://epermits.nashville.gov/#/search?searchCode=APN&page=1&searchText=131060A00100CO&searchType=permit",
+      "URL_Aerial_View": "https://portal.patriotproperties.com/?APIKEY=5D050659143EB96630FB38B91DE12E40&SECRETKEY=A92169630C9BC3C00A1C0F9F140E6DAEC21C8E62DCFF9FC443FB1BE70DDF6AA4268527B9DDE2ECC2C7EE9BB5BF728C06F0DF4019BBECDEBD2A6DD0BBE28A419D8F929E1F3E8DF478E56619995BEFCA8E369276689D791197DC1284F14B3252DBFB2A19A2E451EEA832D6D96488DDC673EBA4B37BD741223B656A793D93209C0F&LAT=36.09589676000007&LONG=-86.82146012499999",
+      "URL_Google_Street_View": "https://www.google.com/maps?q&layer=c&cbll=36.09589676000007,-86.82146012499999",
+      "URL_Google_Maps": "https://www.google.com/maps/search/?api=1&query=1%20BURTON%20HILLS%20BLVD%2C%20Nashville%2C%20TN",
+      "URL_Owner_Instrument": "https://www.davidsonportal.com/gis/file.php?file=202505290041948",
+      "URL_Parcel_Instrument": "https://www.davidsonportal.com/gis/file.php?file=201303130024807",
+      "URL_Assessor_Building": "https://portal.padctn.org/OFS/WP/Building/146442",
+      "URL_Assessor_Print": "https://portal.padctn.org/OFS/WP/Print/146442",
+      "URL_Assessor_Summary": "https://portal.padctn.org/OFS/WP/Summary/146442",
+      "propertyID": "146442"
+    }
+  },
+  {
+    "type": "Feature",
+    "geometry": {
+      "type": "Point",
+      "coordinates": [
+        -86.8463443559999,
+        36.124390862
+      ]
+    },
+    "properties": {
+      "rank": 13,
+      "tier": "Tier 2",
+      "address": "104 WOODMONT BLVD",
+      "city": "Nashville",
+      "state": "TN",
+      "zip": "37205",
+      "apn": "11603010200",
+      "year_built": 1985,
+      "total_sf": null,
+      "stories": 8,
+      "zoning": "OR20",
+      "land_use": "OFFICE BLDG (3 OR MORE STORIES)",
+      "acres": 2.4,
+      "total_appraised": 38101000,
+      "sale_price": 50970857,
+      "price_per_sf": 140.77,
+      "sale_year": 2025,
+      "comp_score": 75,
+      "URL_Parcel_Viewer": "https://maps.nashville.gov/ParcelViewer/?parcelID=11603010200",
+      "URL_Parcel_Report": "https://maps.nashville.gov/ParcelViewer/PrintRecord.html?pin=179380",
+      "URL_Comparable_Map": "https://davidson-tn-citizen.comper.info/template.aspx?propertyID=11603010200",
+      "URL_Permit_Documents": "https://documents.nashville.gov/Request/Form/PermitCodes?parcelnumber=11603010200",
+      "URL_ePermits": "https://epermits.nashville.gov/#/search?searchCode=APN&page=1&searchText=11603010200&searchType=permit",
+      "URL_Aerial_View": "https://portal.patriotproperties.com/?APIKEY=5D050659143EB96630FB38B91DE12E40&SECRETKEY=A92169630C9BC3C00A1C0F9F140E6DAEC21C8E62DCFF9FC443FB1BE70DDF6AA4268527B9DDE2ECC2C7EE9BB5BF728C06F0DF4019BBECDEBD2A6DD0BBE28A419D8F929E1F3E8DF478E56619995BEFCA8E369276689D791197DC1284F14B3252DBFB2A19A2E451EEA832D6D96488DDC673EBA4B37BD741223B656A793D93209C0F&LAT=36.12439086200004&LONG=-86.84634435599997",
+      "URL_Google_Street_View": "https://www.google.com/maps?q&layer=c&cbll=36.12439086200004,-86.84634435599997",
+      "URL_Google_Maps": "https://www.google.com/maps/search/?api=1&query=104%20WOODMONT%20BLVD%2C%20Nashville%2C%20TN",
+      "URL_Owner_Instrument": "https://www.davidsonportal.com/gis/file.php?file=202512190101059",
+      "URL_Parcel_Instrument": "https://www.davidsonportal.com/gis/file.php?file=000069000000802",
+      "URL_Assessor_Building": "https://portal.padctn.org/OFS/WP/Building/123602",
+      "URL_Assessor_Print": "https://portal.padctn.org/OFS/WP/Print/123602",
+      "URL_Assessor_Summary": "https://portal.padctn.org/OFS/WP/Summary/123602",
+      "propertyID": "123602"
+    }
+  },
+  {
+    "type": "Feature",
+    "geometry": {
+      "type": "Point",
+      "coordinates": [
+        -86.6956939519999,
+        36.114819068
+      ]
+    },
+    "properties": {
+      "rank": 14,
+      "tier": "Tier 3",
+      "address": "1321 MURFREESBORO PIKE",
+      "city": "Nashville",
+      "state": "TN",
+      "zip": "37217",
+      "apn": "12010008900",
+      "year_built": 1987,
+      "total_sf": null,
+      "stories": 8,
+      "zoning": "CL",
+      "land_use": "OFFICE BLDG (3 OR MORE STORIES)",
+      "acres": 5.3,
+      "total_appraised": 17982000,
+      "sale_price": 18500000,
+      "price_per_sf": 97.45,
+      "sale_year": 2021,
+      "comp_score": 72,
+      "URL_Parcel_Viewer": "https://maps.nashville.gov/ParcelViewer/?parcelID=12010008900",
+      "URL_Parcel_Report": "https://maps.nashville.gov/ParcelViewer/PrintRecord.html?pin=302467",
+      "URL_Comparable_Map": "https://davidson-tn-citizen.comper.info/template.aspx?propertyID=12010008900",
+      "URL_Permit_Documents": "https://documents.nashville.gov/Request/Form/PermitCodes?parcelnumber=12010008900",
+      "URL_ePermits": "https://epermits.nashville.gov/#/search?searchCode=APN&page=1&searchText=12010008900&searchType=permit",
+      "URL_Aerial_View": "https://portal.patriotproperties.com/?APIKEY=5D050659143EB96630FB38B91DE12E40&SECRETKEY=A92169630C9BC3C00A1C0F9F140E6DAEC21C8E62DCFF9FC443FB1BE70DDF6AA4268527B9DDE2ECC2C7EE9BB5BF728C06F0DF4019BBECDEBD2A6DD0BBE28A419D8F929E1F3E8DF478E56619995BEFCA8E369276689D791197DC1284F14B3252DBFB2A19A2E451EEA832D6D96488DDC673EBA4B37BD741223B656A793D93209C0F&LAT=36.11481906800003&LONG=-86.69569395199994",
+      "URL_Google_Street_View": "https://www.google.com/maps?q&layer=c&cbll=36.11481906800003,-86.69569395199994",
+      "URL_Google_Maps": "https://www.google.com/maps/search/?api=1&query=1321%20MURFREESBORO%20PIKE%2C%20Nashville%2C%20TN",
+      "URL_Owner_Instrument": "https://www.davidsonportal.com/gis/file.php?file=202201210008261",
+      "URL_Parcel_Instrument": "https://www.davidsonportal.com/gis/file.php?file=200104050033554",
+      "URL_Assessor_Building": "https://portal.padctn.org/OFS/WP/Building/222831",
+      "URL_Assessor_Print": "https://portal.padctn.org/OFS/WP/Print/222831",
+      "URL_Assessor_Summary": "https://portal.padctn.org/OFS/WP/Summary/222831",
+      "propertyID": "222831"
+    }
+  },
+  {
+    "type": "Feature",
+    "geometry": {
+      "type": "Point",
+      "coordinates": [
+        -86.7120986839999,
+        36.035241759
+      ]
+    },
+    "properties": {
+      "rank": 15,
+      "tier": "Tier 3",
+      "address": "5880 NOLENSVILLE PIKE",
+      "city": "Nashville",
+      "state": "TN",
+      "zip": "37211",
+      "apn": "17200012200",
+      "year_built": 1989,
+      "total_sf": 92370,
+      "stories": 2,
+      "zoning": "R10",
+      "land_use": "OFFICE BLDG (ONE OR TWO STORIES)",
+      "acres": 13.8,
+      "total_appraised": 23456800,
+      "sale_price": 17000000,
+      "price_per_sf": 184.04,
+      "sale_year": 2019,
+      "comp_score": 70,
+      "URL_Parcel_Viewer": "https://maps.nashville.gov/ParcelViewer/?parcelID=17200012200",
+      "URL_Parcel_Report": "https://maps.nashville.gov/ParcelViewer/PrintRecord.html?pin=287114",
+      "URL_Comparable_Map": "https://davidson-tn-citizen.comper.info/template.aspx?propertyID=17200012200",
+      "URL_Permit_Documents": "https://documents.nashville.gov/Request/Form/PermitCodes?parcelnumber=17200012200",
+      "URL_ePermits": "https://epermits.nashville.gov/#/search?searchCode=APN&page=1&searchText=17200012200&searchType=permit",
+      "URL_Aerial_View": "https://portal.patriotproperties.com/?APIKEY=5D050659143EB96630FB38B91DE12E40&SECRETKEY=A92169630C9BC3C00A1C0F9F140E6DAEC21C8E62DCFF9FC443FB1BE70DDF6AA4268527B9DDE2ECC2C7EE9BB5BF728C06F0DF4019BBECDEBD2A6DD0BBE28A419D8F929E1F3E8DF478E56619995BEFCA8E369276689D791197DC1284F14B3252DBFB2A19A2E451EEA832D6D96488DDC673EBA4B37BD741223B656A793D93209C0F&LAT=36.03524175900003&LONG=-86.71209868399995",
+      "URL_Google_Street_View": "https://www.google.com/maps?q&layer=c&cbll=36.03524175900003,-86.71209868399995",
+      "URL_Google_Maps": "https://www.google.com/maps/search/?api=1&query=5880%20NOLENSVILLE%20PIKE%2C%20Nashville%2C%20TN",
+      "URL_Owner_Instrument": "https://www.davidsonportal.com/gis/file.php?file=201902270017733",
+      "URL_Parcel_Instrument": "https://www.davidsonportal.com/gis/file.php?file=202204050039332",
+      "URL_Assessor_Building": "https://portal.padctn.org/OFS/WP/Building/196027",
+      "URL_Assessor_Print": "https://portal.padctn.org/OFS/WP/Print/196027",
+      "URL_Assessor_Summary": "https://portal.padctn.org/OFS/WP/Summary/196027",
+      "propertyID": "196027"
+    }
+  },
+  {
+    "type": "Feature",
+    "geometry": {
+      "type": "Point",
+      "coordinates": [
+        -86.7002294019999,
+        36.090601173
+      ]
+    },
+    "properties": {
+      "rank": 16,
+      "tier": "Tier 3",
+      "address": "490 METROPLEX DR",
+      "city": "Nashville",
+      "state": "TN",
+      "zip": "37211",
+      "apn": "13400027000",
+      "year_built": 1986,
+      "total_sf": 84620,
+      "stories": 2,
+      "zoning": "CS",
+      "land_use": "OFFICE BLDG (ONE OR TWO STORIES)",
+      "acres": 4.68,
+      "total_appraised": 15638000,
+      "sale_price": 11000000,
+      "price_per_sf": 129.99,
+      "sale_year": 2024,
+      "comp_score": 68,
+      "URL_Parcel_Viewer": "https://maps.nashville.gov/ParcelViewer/?parcelID=13400027000",
+      "URL_Parcel_Report": "https://maps.nashville.gov/ParcelViewer/PrintRecord.html?pin=219581",
+      "URL_Comparable_Map": "https://davidson-tn-citizen.comper.info/template.aspx?propertyID=13400027000",
+      "URL_Permit_Documents": "https://documents.nashville.gov/Request/Form/PermitCodes?parcelnumber=13400027000",
+      "URL_ePermits": "https://epermits.nashville.gov/#/search?searchCode=APN&page=1&searchText=13400027000&searchType=permit",
+      "URL_Aerial_View": "https://portal.patriotproperties.com/?APIKEY=5D050659143EB96630FB38B91DE12E40&SECRETKEY=A92169630C9BC3C00A1C0F9F140E6DAEC21C8E62DCFF9FC443FB1BE70DDF6AA4268527B9DDE2ECC2C7EE9BB5BF728C06F0DF4019BBECDEBD2A6DD0BBE28A419D8F929E1F3E8DF478E56619995BEFCA8E369276689D791197DC1284F14B3252DBFB2A19A2E451EEA832D6D96488DDC673EBA4B37BD741223B656A793D93209C0F&LAT=36.09060117300004&LONG=-86.70022940199999",
+      "URL_Google_Street_View": "https://www.google.com/maps?q&layer=c&cbll=36.09060117300004,-86.70022940199999",
+      "URL_Google_Maps": "https://www.google.com/maps/search/?api=1&query=490%20METROPLEX%20DR%2C%20Nashville%2C%20TN",
+      "URL_Owner_Instrument": "https://www.davidsonportal.com/gis/file.php?file=202407010049170",
+      "URL_Parcel_Instrument": "https://www.davidsonportal.com/gis/file.php?file=000062000000317",
+      "URL_Assessor_Building": "https://portal.padctn.org/OFS/WP/Building/153021",
+      "URL_Assessor_Print": "https://portal.padctn.org/OFS/WP/Print/153021",
+      "URL_Assessor_Summary": "https://portal.padctn.org/OFS/WP/Summary/153021",
+      "propertyID": "153021"
+    }
+  },
+  {
+    "type": "Feature",
+    "geometry": {
+      "type": "Point",
+      "coordinates": [
+        -86.7745612219999,
+        36.042149645
+      ]
+    },
+    "properties": {
+      "rank": 17,
+      "tier": "Tier 3",
+      "address": "750 OLD HICKORY BLVD",
+      "city": "Nashville",
+      "state": "TN",
+      "zip": "37027",
+      "apn": "16000020900",
+      "year_built": 1983,
+      "total_sf": 99550,
+      "stories": 2,
+      "zoning": "OL",
+      "land_use": "OFFICE BLDG (ONE OR TWO STORIES)",
+      "acres": 14.5,
+      "total_appraised": 89314700,
+      "sale_price": 88300000,
+      "price_per_sf": 102.42,
+      "sale_year": 2025,
+      "comp_score": 65,
+      "URL_Parcel_Viewer": "https://maps.nashville.gov/ParcelViewer/?parcelID=16000020900",
+      "URL_Parcel_Report": "https://maps.nashville.gov/ParcelViewer/PrintRecord.html?pin=268449",
+      "URL_Comparable_Map": "https://davidson-tn-citizen.comper.info/template.aspx?propertyID=16000020900",
+      "URL_Permit_Documents": "https://documents.nashville.gov/Request/Form/PermitCodes?parcelnumber=16000020900",
+      "URL_ePermits": "https://epermits.nashville.gov/#/search?searchCode=APN&page=1&searchText=16000020900&searchType=permit",
+      "URL_Aerial_View": "https://portal.patriotproperties.com/?APIKEY=5D050659143EB96630FB38B91DE12E40&SECRETKEY=A92169630C9BC3C00A1C0F9F140E6DAEC21C8E62DCFF9FC443FB1BE70DDF6AA4268527B9DDE2ECC2C7EE9BB5BF728C06F0DF4019BBECDEBD2A6DD0BBE28A419D8F929E1F3E8DF478E56619995BEFCA8E369276689D791197DC1284F14B3252DBFB2A19A2E451EEA832D6D96488DDC673EBA4B37BD741223B656A793D93209C0F&LAT=36.04214964500005&LONG=-86.77456122199999",
+      "URL_Google_Street_View": "https://www.google.com/maps?q&layer=c&cbll=36.04214964500005,-86.77456122199999",
+      "URL_Google_Maps": "https://www.google.com/maps/search/?api=1&query=750%20OLD%20HICKORY%20BLVD%2C%20Nashville%2C%20TN",
+      "URL_Owner_Instrument": "https://www.davidsonportal.com/gis/file.php?file=202510310086666",
+      "URL_Parcel_Instrument": "https://www.davidsonportal.com/gis/file.php?file=202207260085306",
+      "URL_Assessor_Building": "https://portal.padctn.org/OFS/WP/Building/184609",
+      "URL_Assessor_Print": "https://portal.padctn.org/OFS/WP/Print/184609",
+      "URL_Assessor_Summary": "https://portal.padctn.org/OFS/WP/Summary/184609",
+      "propertyID": "184609"
+    }
+  },
+  {
+    "type": "Feature",
+    "geometry": {
+      "type": "Point",
+      "coordinates": [
+        -86.6354830989999,
+        36.15391981
+      ]
+    },
+    "properties": {
+      "rank": 18,
+      "tier": "Tier 3",
+      "address": "100 CENTERVIEW DR",
+      "city": "Nashville",
+      "state": "TN",
+      "zip": "37214",
+      "apn": "9600002800",
+      "year_built": 1984,
+      "total_sf": null,
+      "stories": 3,
+      "zoning": "OL",
+      "land_use": "OFFICE BLDG (3 OR MORE STORIES)",
+      "acres": 25.36,
+      "total_appraised": 36314000,
+      "sale_price": 19500000,
+      "price_per_sf": 78.45,
+      "sale_year": 2025,
+      "comp_score": 63,
+      "URL_Parcel_Viewer": "https://maps.nashville.gov/ParcelViewer/?parcelID=09600002800",
+      "URL_Parcel_Report": "https://maps.nashville.gov/ParcelViewer/PrintRecord.html?pin=138551",
+      "URL_Comparable_Map": "https://davidson-tn-citizen.comper.info/template.aspx?propertyID=09600002800",
+      "URL_Permit_Documents": "https://documents.nashville.gov/Request/Form/PermitCodes?parcelnumber=09600002800",
+      "URL_ePermits": "https://epermits.nashville.gov/#/search?searchCode=APN&page=1&searchText=09600002800&searchType=permit",
+      "URL_Aerial_View": "https://portal.patriotproperties.com/?APIKEY=5D050659143EB96630FB38B91DE12E40&SECRETKEY=A92169630C9BC3C00A1C0F9F140E6DAEC21C8E62DCFF9FC443FB1BE70DDF6AA4268527B9DDE2ECC2C7EE9BB5BF728C06F0DF4019BBECDEBD2A6DD0BBE28A419D8F929E1F3E8DF478E56619995BEFCA8E369276689D791197DC1284F14B3252DBFB2A19A2E451EEA832D6D96488DDC673EBA4B37BD741223B656A793D93209C0F&LAT=36.15391981000005&LONG=-86.63548309899994",
+      "URL_Google_Street_View": "https://www.google.com/maps?q&layer=c&cbll=36.15391981000005,-86.63548309899994",
+      "URL_Google_Maps": "https://www.google.com/maps/search/?api=1&query=100%20CENTERVIEW%20DR%2C%20Nashville%2C%20TN",
+      "URL_Owner_Instrument": "https://www.davidsonportal.com/gis/file.php?file=202504110027177",
+      "URL_Parcel_Instrument": "https://www.davidsonportal.com/gis/file.php?file=000052000000519",
+      "URL_Assessor_Building": "https://portal.padctn.org/OFS/WP/Building/96979",
+      "URL_Assessor_Print": "https://portal.padctn.org/OFS/WP/Print/96979",
+      "URL_Assessor_Summary": "https://portal.padctn.org/OFS/WP/Summary/96979",
+      "propertyID": "96979"
+    }
+  },
+  {
+    "type": "Feature",
+    "geometry": {
+      "type": "Point",
+      "coordinates": [
+        -86.7010183409999,
+        36.310439367
+      ]
+    },
+    "properties": {
+      "rank": 19,
+      "tier": "Tier 3",
+      "address": "1000 NORTHCHASE DR",
+      "city": "Nashville",
+      "state": "TN",
+      "zip": "37072",
+      "apn": "2600012800",
+      "year_built": 1988,
+      "total_sf": 54826,
+      "stories": 3,
+      "zoning": "6ZZ",
+      "land_use": "OFFICE BLDG (3 OR MORE STORIES)",
+      "acres": 3.18,
+      "total_appraised": 8995000,
+      "sale_price": 8350000,
+      "price_per_sf": 152.3,
+      "sale_year": 2026,
+      "comp_score": 60,
+      "URL_Parcel_Viewer": "https://maps.nashville.gov/ParcelViewer/?parcelID=02600012800",
+      "URL_Parcel_Report": "https://maps.nashville.gov/ParcelViewer/PrintRecord.html?pin=9149",
+      "URL_Comparable_Map": "https://davidson-tn-citizen.comper.info/template.aspx?propertyID=02600012800",
+      "URL_Permit_Documents": "https://documents.nashville.gov/Request/Form/PermitCodes?parcelnumber=02600012800",
+      "URL_ePermits": "https://epermits.nashville.gov/#/search?searchCode=APN&page=1&searchText=02600012800&searchType=permit",
+      "URL_Aerial_View": "https://portal.patriotproperties.com/?APIKEY=5D050659143EB96630FB38B91DE12E40&SECRETKEY=A92169630C9BC3C00A1C0F9F140E6DAEC21C8E62DCFF9FC443FB1BE70DDF6AA4268527B9DDE2ECC2C7EE9BB5BF728C06F0DF4019BBECDEBD2A6DD0BBE28A419D8F929E1F3E8DF478E56619995BEFCA8E369276689D791197DC1284F14B3252DBFB2A19A2E451EEA832D6D96488DDC673EBA4B37BD741223B656A793D93209C0F&LAT=36.31043936700007&LONG=-86.70101834099995",
+      "URL_Google_Street_View": "https://www.google.com/maps?q&layer=c&cbll=36.31043936700007,-86.70101834099995",
+      "URL_Google_Maps": "https://www.google.com/maps/search/?api=1&query=1000%20NORTHCHASE%20DR%2C%20Nashville%2C%20TN",
+      "URL_Owner_Instrument": "https://www.davidsonportal.com/gis/file.php?file=202601070001230",
+      "URL_Parcel_Instrument": "https://www.davidsonportal.com/gis/file.php?file=000069000000361",
+      "URL_Assessor_Building": "https://portal.padctn.org/OFS/WP/Building/5571",
+      "URL_Assessor_Print": "https://portal.padctn.org/OFS/WP/Print/5571",
+      "URL_Assessor_Summary": "https://portal.padctn.org/OFS/WP/Summary/5571",
+      "propertyID": "5571"
+    }
+  },
+  {
+    "type": "Feature",
+    "geometry": {
+      "type": "Point",
+      "coordinates": [
+        -86.6945235829999,
+        36.085384785
+      ]
+    },
+    "properties": {
+      "rank": 20,
+      "tier": "Tier 3",
+      "address": "3343 PERIMETER HILL DR",
+      "city": "Nashville",
+      "state": "TN",
+      "zip": "37211",
+      "apn": "13414003900",
+      "year_built": 1985,
+      "total_sf": 73352,
+      "stories": 3,
+      "zoning": "CS",
+      "land_use": "OFFICE BLDG (ONE OR TWO STORIES)",
+      "acres": 3.58,
+      "total_appraised": 15742900,
+      "sale_price": 5254600,
+      "price_per_sf": 71.64,
+      "sale_year": 2018,
+      "comp_score": 58,
+      "URL_Parcel_Viewer": "https://maps.nashville.gov/ParcelViewer/?parcelID=13414003900",
+      "URL_Parcel_Report": "https://maps.nashville.gov/ParcelViewer/PrintRecord.html?pin=220859",
+      "URL_Comparable_Map": "https://davidson-tn-citizen.comper.info/template.aspx?propertyID=13414003900",
+      "URL_Permit_Documents": "https://documents.nashville.gov/Request/Form/PermitCodes?parcelnumber=13414003900",
+      "URL_ePermits": "https://epermits.nashville.gov/#/search?searchCode=APN&page=1&searchText=13414003900&searchType=permit",
+      "URL_Aerial_View": "https://portal.patriotproperties.com/?APIKEY=5D050659143EB96630FB38B91DE12E40&SECRETKEY=A92169630C9BC3C00A1C0F9F140E6DAEC21C8E62DCFF9FC443FB1BE70DDF6AA4268527B9DDE2ECC2C7EE9BB5BF728C06F0DF4019BBECDEBD2A6DD0BBE28A419D8F929E1F3E8DF478E56619995BEFCA8E369276689D791197DC1284F14B3252DBFB2A19A2E451EEA832D6D96488DDC673EBA4B37BD741223B656A793D93209C0F&LAT=36.08538478500003&LONG=-86.69452358299998",
+      "URL_Google_Street_View": "https://www.google.com/maps?q&layer=c&cbll=36.08538478500003,-86.69452358299998",
+      "URL_Google_Maps": "https://www.google.com/maps/search/?api=1&query=3343%20PERIMETER%20HILL%20DR%2C%20Nashville%2C%20TN",
+      "URL_Owner_Instrument": "https://www.davidsonportal.com/gis/file.php?file=201803120023324",
+      "URL_Parcel_Instrument": "https://www.davidsonportal.com/gis/file.php?file=000052000000799",
+      "URL_Assessor_Building": "https://portal.padctn.org/OFS/WP/Building/153967",
+      "URL_Assessor_Print": "https://portal.padctn.org/OFS/WP/Print/153967",
+      "URL_Assessor_Summary": "https://portal.padctn.org/OFS/WP/Summary/153967",
+      "propertyID": "153967"
+    }
+  }
+];
+
+const tierColors = { "Subject": "#C62828", "Tier 1": "#1565C0", "Tier 2": "#2E7D32", "Tier 3": "#E65100" };
+const tierClass = { "Subject": "subject", "Tier 1": "tier1", "Tier 2": "tier2", "Tier 3": "tier3" };
+
+function fmt(n) { return n == null ? "N/A" : "$" + n.toLocaleString("en-US"); }
+function fmtSF(n) { return n == null ? "N/A" : n.toLocaleString("en-US") + " SF"; }
+
+const map = L.map("map", { zoomControl: true }).setView([36.14, -86.76], 11);
+
+L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+  attribution: "&copy; OpenStreetMap &copy; CARTO",
+  maxZoom: 19
+}).addTo(map);
+
+const layers = { "Subject": L.layerGroup(), "Tier 1": L.layerGroup(), "Tier 2": L.layerGroup(), "Tier 3": L.layerGroup() };
+
+features.forEach(f => {
+  const p = f.properties;
+  const [lng, lat] = f.geometry.coordinates;
+  const tier = p.tier;
+  const color = tierColors[tier];
+  const cls = tierClass[tier];
+  const isSubject = tier === "Subject";
+  const pid = p.propertyID;
+
+  const photoUrl = "https://portal.padctn.org/OFS/WP/Image/GetPropertyImage?propertyID=" + pid + "&card=1";
+  const sketchUrl = "https://portal.padctn.org/OFS/WP/Image/GetSketchImage?propertyID=" + pid + "&card=1";
+  const scoreColor = p.comp_score >= 85 ? "#1565C0" : p.comp_score >= 70 ? "#2E7D32" : "#E65100";
+
+  let linksHtml = "";
+  const linkMap = {
+    "Property Card": p.URL_Comparable_Map,
+    "Parcel Viewer": p.URL_Parcel_Viewer,
+    "Assessor": p.URL_Assessor_Summary,
+    "Permits": p.URL_Permit_Documents,
+    "Street View": p.URL_Google_Street_View,
+    "Deed": p.URL_Owner_Instrument,
+    "Aerial": p.URL_Aerial_View
+  };
+  for (const [label, url] of Object.entries(linkMap)) {
+    if (url) linksHtml += '<a href="' + url + '" target="_blank">' + label + '</a>';
+  }
+
+  const popup = `
+    <div class="prop-card">
+      <div class="card-header ${cls}">
+        <div class="badges">
+          <div class="rank-badge">${isSubject ? "\u2605" : "#" + p.rank}</div>
+          <div class="tier-badge">${tier}${isSubject ? "" : " \u2022 Rank " + p.rank + "/20"}</div>
+        </div>
+        <h3>${p.address}</h3>
+        <div class="subtitle">${p.city}, ${p.state} ${p.zip} &nbsp;|&nbsp; APN: ${p.apn}</div>
+      </div>
+
+      <div class="card-images">
+        <div class="img-panel" onclick="window.open('${p.URL_Comparable_Map || ""}','_blank')">
+          <img src="${photoUrl}" alt="Property Photo" onerror="this.src='https://via.placeholder.com/300x170/e0e0e0/999?text=No+Photo'"/>
+          <div class="img-label">Property Photo</div>
+        </div>
+        <div class="img-panel" onclick="window.open('${p.URL_Assessor_Building || ""}','_blank')">
+          <img src="${sketchUrl}" alt="Building Sketch" onerror="this.src='https://via.placeholder.com/300x170/e0e0e0/999?text=No+Sketch'"/>
+          <div class="img-label">Building Sketch</div>
+        </div>
+      </div>
+
+      <div class="sale-strip">
+        <div class="price-block">
+          <div class="price">${fmt(p.sale_price)}</div>
+          <div class="year">Sold ${p.sale_year}</div>
+        </div>
+        <div class="psf-badge">$${p.price_per_sf != null ? p.price_per_sf.toFixed(2) : "N/A"}/SF</div>
+      </div>
+
+      <div class="data-grid">
+        <div class="data-cell">
+          <div class="label">Year Built</div>
+          <div class="value">${p.year_built || "N/A"}</div>
+        </div>
+        <div class="data-cell">
+          <div class="label">Building Area</div>
+          <div class="value">${p.total_sf ? fmtSF(p.total_sf) : "N/A"}</div>
+        </div>
+        <div class="data-cell">
+          <div class="label">Stories</div>
+          <div class="value">${p.stories || "N/A"}</div>
+        </div>
+        <div class="data-cell">
+          <div class="label">Acreage</div>
+          <div class="value">${p.acres != null ? p.acres.toFixed(2) + " ac" : "N/A"}</div>
+        </div>
+        <div class="data-cell">
+          <div class="label">Zoning</div>
+          <div class="value">${p.zoning}</div>
+        </div>
+        <div class="data-cell">
+          <div class="label">Appraised Value</div>
+          <div class="value">${p.total_appraised ? fmt(p.total_appraised) : "N/A"}</div>
+        </div>
+        <div class="data-cell full">
+          <div class="label">Land Use</div>
+          <div class="value">${p.land_use}</div>
+        </div>
+      </div>
+
+      <div class="score-wrap">
+        <div class="score-header">
+          <span>COMP SCORE</span>
+          <span style="color:${scoreColor};font-weight:800;">${p.comp_score}/100</span>
+        </div>
+        <div class="score-bar"><div class="fill" style="width:${p.comp_score}%;background:${scoreColor};"></div></div>
+      </div>
+
+      <div class="card-links">${linksHtml}</div>
+    </div>
+  `;
+
+  const marker = L.circleMarker([lat, lng], {
+    radius: isSubject ? 14 : 9,
+    fillColor: color,
+    color: "#fff",
+    weight: isSubject ? 3.5 : 2,
+    opacity: 1,
+    fillOpacity: 0.9
+  }).bindPopup(popup, { maxWidth: 400, minWidth: 380, className: "comp-popup" });
+
+  if (isSubject) {
+    marker.bindTooltip("\u2605 SUBJECT: 648 Grassmere Park", {
+      permanent: true, direction: "top", offset: [0, -16], className: "subject-tooltip"
+    });
+  } else {
+    marker.bindTooltip("#" + p.rank + " " + p.address + " ($" + (p.price_per_sf != null ? p.price_per_sf.toFixed(0) : "?") + "/SF)", {
+      direction: "top", offset: [0, -10]
+    });
+  }
+  layers[tier].addLayer(marker);
+});
+
+Object.values(layers).forEach(l => l.addTo(map));
+
+L.control.layers(null, {
+  '<span style="color:#C62828;font-weight:bold;">\u2b24</span> Subject Property': layers["Subject"],
+  '<span style="color:#1565C0;font-weight:bold;">\u2b24</span> Tier 1 — Best Comps (6)': layers["Tier 1"],
+  '<span style="color:#2E7D32;font-weight:bold;">\u2b24</span> Tier 2 — Good Comps (7)': layers["Tier 2"],
+  '<span style="color:#E65100;font-weight:bold;">\u2b24</span> Tier 3 — Supporting (7)': layers["Tier 3"]
+}, { collapsed: false, position: "topright" }).addTo(map);
+
+const legend = L.control({ position: "bottomleft" });
+legend.onAdd = function() {
+  const div = L.DomUtil.create("div", "legend");
+  div.innerHTML = `
+    <h4>648 Grassmere Park</h4>
+    <div style="font-size:11px;color:#777;margin-bottom:8px;">Comparable Sales Map — 20 Comps</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#C62828;width:16px;height:16px;"></div><b>Subject Property</b></div>
+    <div class="legend-item"><div class="legend-dot" style="background:#1565C0;"></div>Tier 1: Best (85-100 pts)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#2E7D32;"></div>Tier 2: Good (70-84 pts)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#E65100;"></div>Tier 3: Supporting (55-69 pts)</div>
+    <div style="margin-top:8px;padding-top:8px;border-top:1px solid #eee;font-size:10px;color:#999;">
+      Click any dot for property card<br>Photos: Davidson Co. Assessor
+    </div>
+  `;
+  return div;
+};
+legend.addTo(map);
+
+const allCoords = features.map(f => [f.geometry.coordinates[1], f.geometry.coordinates[0]]);
+map.fitBounds(allCoords, { padding: [50, 50] });
+</script>
+</body>
+</html>
