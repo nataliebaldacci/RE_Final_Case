@@ -179,12 +179,12 @@
   .subject-tooltip::before { border-top-color: #B22222 !important; }
 
   .comp-label {
-    background: rgba(255,255,255,0.92) !important;
-    border: 1px solid #ccc !important;
+    background: rgba(255,255,255,0.93) !important;
+    border: 1px solid #bbb !important;
     color: #333 !important;
-    font-size: 10px !important;
-    font-weight: 600 !important;
-    padding: 2px 6px !important;
+    font-size: 9.5px !important;
+    font-weight: 700 !important;
+    padding: 1px 5px !important;
     border-radius: 3px !important;
     box-shadow: 0 1px 3px rgba(0,0,0,0.15) !important;
     white-space: nowrap !important;
@@ -1256,8 +1256,11 @@ features.forEach(f => {
       permanent: true, direction: "top", offset: [0, -16], className: "subject-tooltip"
     });
   } else {
+    const dirs = ["top","right","bottom","left"];
+    const dir = dirs[p.rank % 4];
+    const offsets = { top: [0, -10], right: [10, 0], bottom: [0, 10], left: [-10, 0] };
     marker.bindTooltip("#" + p.rank + " " + p.address + " — $" + (p.price_per_sf != null ? p.price_per_sf.toFixed(0) : "?") + "/SF", {
-      permanent: true, direction: "top", offset: [0, -10], className: "comp-label"
+      permanent: true, direction: dir, offset: offsets[dir], className: "comp-label"
     });
   }
   layers[tier].addLayer(marker);
