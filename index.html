@@ -1134,11 +1134,16 @@ L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
   maxZoom: 19
 }).addTo(map);
 
-// Davidson County (Nashville) boundary
-const davidsonCounty = {"type":"Polygon","coordinates":[[[-86.864957,36.044672],[-86.9292,36.052722],[-87.027705,35.989423],[-87.054114,36.045535],[-86.997705,36.128512],[-86.913233,36.382621],[-86.824784,36.349872],[-86.754795,36.405496],[-86.723495,36.34768],[-86.594286,36.245105],[-86.515589,36.10061],[-86.618892,35.968224],[-86.627397,35.974027],[-86.648288,35.976422],[-86.681889,35.989399],[-86.686164,35.994092],[-86.687714,35.995343],[-86.691904,35.994581],[-86.787205,36.035999],[-86.864957,36.044672]]]};
-const countyLayer = L.geoJSON(davidsonCounty, {
-  style: { color: "#3A5566", weight: 2.5, fillColor: "#3A5566", fillOpacity: 0.04, dashArray: "6 4" }
-}).addTo(map);
+// Davidson County (Nashville) boundary — loaded from GeoJSON file
+let countyLayer = L.layerGroup().addTo(map);
+fetch("Davidson_County_Boundary.geojson")
+  .then(r => r.json())
+  .then(data => {
+    const layer = L.geoJSON(data, {
+      style: { color: "#3A5566", weight: 2.5, fillColor: "#3A5566", fillOpacity: 0.04, dashArray: "6 4" }
+    });
+    countyLayer.addLayer(layer);
+  });
 
 const layers = { "Subject": L.layerGroup(), "Tier 1": L.layerGroup(), "Tier 2": L.layerGroup(), "Tier 3": L.layerGroup() };
 
